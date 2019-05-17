@@ -1,0 +1,504 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <title>The Scripter</title>
+    <link
+      href="https://netdna.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css"
+      rel="stylesheet"
+      id="bootstrap-css"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/0.9.15/css/bootstrap-multiselect.css"
+    />
+    <script
+      src="https://code.jquery.com/jquery-3.3.1.js"
+      integrity="sha256-2Kok7MbOyxpgUVvAk/HJ2jigOSYS2auK4Pfzbm7uH60="
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://netdna.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-multiselect/0.9.15/js/bootstrap-multiselect.js"></script>
+
+    <style>
+      .myDiv {
+        position: relative;
+        z-index: 1;
+      }
+
+      .myDiv .bg {
+        position: absolute;
+        z-index: -1;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: url(./bg.jpg) center center;
+        opacity: 0.8;
+        width: 890px;
+        height: 100%;
+        border: 1px solid black;
+      }
+      * {
+        box-sizing: border-box;
+      }
+
+      .column {
+        float: left;
+        padding: 10px;
+      }
+
+      .left {
+        width: 35%;
+      }
+
+      .right {
+        width: 65%;
+      }
+
+      .row:after {
+        content: "";
+        display: table;
+        clear: both;
+      }
+    </style>
+  </head>
+
+  <body class="w3-light-grey">
+    <div class="row">
+      <br />
+      &nbsp; &nbsp; &nbsp;
+      <button
+        type="button"
+        id="previewButton"
+        class="btn btn-primary"
+        style="height:35px;width:100px"
+      >
+        Generate
+      </button>
+      <button
+        type="button"
+        id="dlButton"
+        class="btn btn-primary"
+        style="height:35px;width:100px"
+      >
+        Get Script
+      </button>
+      <button
+        type="button"
+        id="btnClear"
+        class="btn btn-primary"
+        style="height:35px;width:100px"
+      >
+        Clear Lines
+      </button>
+      <br />
+      <br />
+      &nbsp; &nbsp; &nbsp;
+      <select id="process-select" dir="ltr" multiple="multiple"></select>
+
+      <div class="btn-group">
+        <select id="kernel-select" multiple="multiple"></select>
+      </div>
+
+      <select id="other-select" multiple="multiple"></select>
+
+      <br />
+      <br />
+      <div class="myDiv">
+        <div class="bg"></div>
+        <h1
+          align="left"
+          id="script"
+          style="width:850px;color:rgb(0,0,0);font-size:16px;font-family:'Courier New';margin-left:36px"
+        >
+          Loading...
+        </h1>
+      </div>
+    </div>
+
+    <script type="text/javascript">
+      // Objects for stuff
+      let procList = [];
+      let tarCommand = "<br>cp $FWDIR/log/{";
+      const script = {
+        textLines: [],
+        selector: document.querySelector("#script")
+      };
+      const previewButton = document.querySelector("#previewButton");
+
+      let dataJS = $.getJSON("./sec.js", function(data) {
+        return data;
+      });
+
+      $(document).ajaxComplete(function() {
+        let displayName;
+        dataJS = dataJS["responseJSON"];
+
+        //building select from JSON
+        $(document).ready(function() {
+          for (let option in dataJS.multiselect.other) {
+            $("#other-select").append(
+              '<option value="' +
+                option +
+                '">' +
+                dataJS.multiselect.other[option].displayName +
+                "</option>"
+            );
+          }
+          //processes have no displayName property at this time
+          for (let option in dataJS.multiselect.process) {
+            $("#process-select").append(
+              '<option value="' + option + '">' + option + "</option>"
+            );
+          }
+          for (let optgroup in dataJS.multiselect.kernel) {
+            $("#kernel-select").append(
+              '<optgroup label="' + optgroup + '"></option>'
+            );
+            for (let option of dataJS.multiselect.kernel[optgroup]) {
+              $("#kernel-select").append(
+                '<option value="' + option + '">' + option + "</option>"
+              );
+            }
+          }
+
+          $("#process-select").multiselect({
+            nonSelectedText: "Process Name",
+            enableFiltering: true,
+            filterPlaceholder: "Search"
+          });
+          $("#kernel-select").multiselect({
+            nonSelectedText: "Kernel",
+            enableClickableOptGroups: true,
+            buttonContainer: '<div id="btn-group" />',
+            enableFiltering: true,
+            enableCollapsibleOptGroups: true
+          });
+          $("#other-select").multiselect({
+            nonSelectedText: "Other",
+            enableFiltering: true,
+            filterPlaceholder: "Search"
+          });
+          $("#btn-group .caret-container").click();
+        });
+        scriptPreview();
+      });
+
+      //Array tools
+      Array.prototype.removeByVal = function() {
+        var what,
+          a = arguments,
+          L = a.length,
+          ax;
+        while (L && this.length) {
+          what = a[--L];
+          while ((ax = this.indexOf(what)) !== -1) {
+            this.splice(ax, 1);
+          }
+        }
+        return this;
+      };
+      Array.prototype.insert = function(index, item) {
+        if (!this.includes(item)) {
+          return this.splice(index, 0, item);
+        }
+      };
+
+      //Bug fix tools
+      function array_move(arr, old_index, new_index) {
+        arr.splice(new_index, 0, arr.splice(old_index, 1)[0]);
+      }
+      function reorderIfExists(a, b, diff) {
+        if (
+          script.textLines.indexOf(a) - script.textLines.indexOf(b) != diff &&
+          script.textLines.includes(a) &&
+          script.textLines.includes(b)
+        ) {
+          array_move(
+            script.textLines,
+            script.textLines.indexOf(a),
+            script.textLines.indexOf(b) + diff
+          );
+        }
+      }
+
+      //Core functions
+      function addOrRemoveProcess(process) {
+        script.textLines.insert(
+          script.textLines.indexOf(dataJS.messages.misc.replicateLine) - 12,
+          process.titleStart
+        );
+        script.textLines.insert(
+          script.textLines.indexOf(dataJS.messages.misc.replicateLine) + 24,
+          process.titleStop
+        );
+        script.textLines.insert(
+          script.textLines.indexOf(process.titleStart) + 1,
+          process.debugStart
+        );
+        script.textLines.insert(
+          script.textLines.indexOf(process.titleStop) + 1,
+          process.debugEnd
+        );
+      }
+      function getSelected(multiName) {
+        const selected = document.querySelectorAll(
+          "#" + multiName + " option:checked"
+        );
+        return Array.from(selected).map(el => el.value);
+      }
+      function syncChoicesToScript(menu) {
+        let indexLine = script.textLines.indexOf(
+          dataJS.messages.misc.replicateLine
+        );
+        selectedItems = getSelected(menu);
+        //adding lines that are not kernel debugs (kernel debug logic works differently)
+        if (menu !== "kernel-select") {
+          for (let item of selectedItems) {
+            if (menu == "process-select") {
+              addOrRemoveProcess(dataJS.multiselect.process[item]);
+              if (item != "mpdaemon") {
+                procList.push(item);
+              } else {
+                isMpdaemon = true;
+              }
+            } else {
+              addOrRemoveProcess(dataJS.multiselect.other[item]);
+            }
+          }
+        }
+
+        //kernel logic
+        else {
+          let debugPrefix = false;
+          if (selectedItems.length > 0) {
+            script.textLines.insert(
+              indexLine,
+              dataJS.messages.kernel.titleStart
+            );
+            indexLine++;
+            for (let property in dataJS.multiselect.kernel) {
+              if (property == "Firewall") {
+                for (let flag of dataJS.multiselect.kernel["Firewall"]) {
+                  for (let chosenFlag of selectedItems) {
+                    if (flag == chosenFlag) {
+                      if (!debugPrefix) {
+                        script.textLines.insert(
+                          indexLine,
+                          dataJS.messages.kernel.kernelDebug + "fw +"
+                        );
+                        debugPrefix = true;
+                      }
+
+                      script.textLines[indexLine] = [
+                        script.textLines[indexLine],
+                        chosenFlag
+                      ]
+                        .filter(Boolean)
+                        .join(" ");
+                      selectedItems.removeByVal(chosenFlag);
+                    }
+                  }
+                }
+              }
+
+              //printing APPI+ ALL ..IDAPI +ALL .....    PROPERTY = BLADES || Services || Rulebase
+              else {
+                let debugPrefix = false;
+                indexLine--;
+                for (let chosenFlag of selectedItems) {
+                  script.textLines.insert(
+                    indexLine,
+                    dataJS.messages.kernel.kernelDebug
+                  );
+                  debugPrefix = true;
+                  if (debugPrefix) {
+                    script.textLines[indexLine] += chosenFlag;
+                    selectedItems.removeByVal(chosenFlag);
+                    debugPrefix = false;
+                    indexLine++;
+                  }
+                }
+              }
+              indexLine++;
+            }
+
+            //adding kdebug, title of kernel stop and kill kdebug line(if not already used in traffic kill)
+            script.textLines.insert(
+              script.textLines.indexOf(dataJS.messages.misc.replicateLine),
+              dataJS.messages.kernel.kdebug
+            );
+            script.textLines.insert(
+              script.textLines.indexOf(dataJS.messages.misc.replicateLine) + 50,
+              dataJS.messages.kernel.titleStop
+            );
+            if (
+              !script.textLines.includes(
+                dataJS.multiselect.other.tcpdump.debugEnd
+              )
+            ) {
+              script.textLines.insert(
+                script.textLines.indexOf(dataJS.messages.kernel.titleStop) + 5,
+                dataJS.multiselect.other.tcpdump.debugEnd
+              );
+            }
+          }
+        }
+      }
+
+      function buildTar(procList) {
+        if (procList.length > 1) {
+          tarCommand += "<br>cp $FWDIR/log/{";
+          for (let proc of procList) {
+            tarCommand += proc + ".elg*,";
+          }
+          tarCommand += "}<br>";
+          tarCommand = tarCommand.replace(",}", "} $DBGDIR");
+        } else if (procList.length == 1) {
+          tarCommand += "<br>cp $FWDIR/log/" + procList[0] + ".elg* $DBGDIR";
+        }
+      }
+
+      //Main function - gets values from selection, adds lines to script.textLines and prints to HTML
+      function scriptPreview() {
+        isMpdaemon = false;
+        tarCommand = "";
+        procList = [];
+        script.selector.innerHTML = "";
+        script.textLines = [
+          dataJS.messages.misc.bashLine,
+          dataJS.messages.misc.scriptTitle,
+          dataJS.messages.misc.DBGDIR,
+          dataJS.messages.misc.mkdirDebugFolder,
+          dataJS.messages.misc.replicateLine
+        ];
+        syncChoicesToScript("process-select");
+        syncChoicesToScript("other-select");
+        syncChoicesToScript("kernel-select");
+
+        //re-ordering the lines (bug fixes)
+        //BUGFIX: Force starting lines at start
+        array_move(
+          script.textLines,
+          script.textLines.indexOf(dataJS.messages.misc.bashLine),
+          0
+        );
+        array_move(
+          script.textLines,
+          script.textLines.indexOf(dataJS.messages.misc.scriptTitle),
+          1
+        );
+        array_move(
+          script.textLines,
+          script.textLines.indexOf(dataJS.messages.misc.DBGDIR),
+          2
+        );
+        array_move(
+          script.textLines,
+          script.textLines.indexOf(dataJS.messages.misc.mkdirDebugFolder),
+          3
+        );
+
+        //BUGFIX: place tcpdummp + fwmonitor under relevant titles
+        reorderIfExists(
+          dataJS.multiselect.other.tcpdump.titleStart,
+          dataJS.messages.misc.mkdirDebugFolder,
+          1
+        );
+        reorderIfExists(
+          dataJS.multiselect.other.tcpdump.debugStart,
+          dataJS.multiselect.other.tcpdump.titleStart,
+          1
+        );
+        reorderIfExists(
+          dataJS.multiselect.other.fwmonitor.debugStart,
+          dataJS.multiselect.other.fwmonitor.titleStart,
+          1
+        );
+        reorderIfExists(
+          dataJS.multiselect.other.tcpdump.debugEnd,
+          dataJS.multiselect.other.tcpdump.titleStop,
+          1
+        );
+        reorderIfExists(
+          dataJS.multiselect.other.fwmonitor.debugEnd,
+          dataJS.multiselect.other.fwmonitor.titleStop,
+          1
+        );
+        reorderIfExists(
+          dataJS.multiselect.other.nat.debugStart,
+          dataJS.multiselect.other.nat.titleStart,
+          1
+        );
+        reorderIfExists(
+          dataJS.multiselect.other.fwaccel.debugStart,
+          dataJS.multiselect.other.fwaccel.titleStart,
+          1
+        );
+
+        //Insert tar line
+        if (isMpdaemon) {
+          tarCommand =
+            "<br>cp $CPDIR/log/{mpclient.elg*,mpdaemon.elg*} $DBGDIR";
+        }
+        buildTar(procList);
+        tarCommand +=
+          "<br>tar -cvzf $DBGDIR/debug_$(date +%Y-%m-%d_%H:%M:%S)_`hostname`.tgz $DBGDIR";
+        script.textLines.insert(
+          script.textLines.indexOf(dataJS.messages.misc.replicateLine) + 55,
+          tarCommand
+        );
+
+        //Printing the Array script.textLines to the HTML
+        for (let line of script.textLines) {
+          script.selector.innerHTML += line + "<br>";
+        }
+      }
+
+      $("#previewButton").click(function() {
+        scriptPreview();
+      });
+
+      function download(filename, text) {
+        var element = document.createElement("a");
+        element.setAttribute(
+          "href",
+          "data:text/plain;charset=utf-8," + encodeURIComponent(text)
+        );
+        element.setAttribute("download", filename);
+        element.style.display = "none";
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+      }
+
+      $("#dlButton").click(function() {
+        let text = script.selector.innerHTML;
+        text = text
+          .replace(/<br\s*[\/]?>/gi, "\n")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&amp;/g, "&");
+        alert("Always test before sending to customers!");
+        download("debug.sh", text);
+      });
+
+      $("#btnClear").click(function() {
+        $("#process-select option:selected").prop("selected", false);
+        $("#process-select").multiselect("refresh");
+        $("#kernel-select option:selected").prop("selected", false);
+        $("#kernel-select").multiselect("refresh");
+        $("#other-select option:selected").prop("selected", false);
+        $("#other-select").multiselect("refresh");
+        scriptPreview();
+      });
+
+      function release() {
+        alert(
+          "Team beta v1.08 - 18/7/2018\nFramework for other groups\n\nTeam beta v1.06 - 14/7/2018\nScalable: select now derive from JSON \nFixed tar syntax \nFixed cp for 1 elg syntax \ntar added for all debug types \nFixed wrong pep debug \n\nTeam beta v1.0.2 - 7/7/2018\n- Features:\nKernel & User debug\nAdvanced tar command\n Downloadble script"
+        );
+      }
+    </script>
+  </body>
+</html>

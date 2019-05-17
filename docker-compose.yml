@@ -1,0 +1,49 @@
+version: "3.1"
+
+services:
+  api_server:
+    container_name: api_server
+    restart: always
+    build:
+      context: ./main
+    ports:
+      - "80:80"
+      - "8443:8443"
+      - "443:443"
+    depends_on:
+      - mongo
+    networks:
+      default:
+
+  mongo:
+    container_name: mongo
+    restart: always
+    image: mongo:latest
+    command: mongod --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=user
+      - MONGO_INITDB_ROOT_PASSWORD=pass
+
+  injector:
+    container_name: injector
+    restart: always
+    build:
+      context: ./injector
+    ports:
+      - "2202:22"
+    networks:
+      default:
+      sec_labs:
+        ipv4_address: "192.168.0.20"
+
+networks:
+  sec_labs:
+    driver: ipvlan
+    driver_opts:
+      parent: ens192
+      ipvlan_mode: "l2"
+    ipam:
+      config:
+        - subnet: 192.168.0.0/16

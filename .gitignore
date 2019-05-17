@@ -1,0 +1,8 @@
+node_modules
+./client/node_modules
+.vscode
+uploads
+./config/keys.js
+./config/private.key
+./config/default.json
+./config/certificate.pem

@@ -1,0 +1,30 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "client-install": "npm install --prefix client",
+    "start": "node server.js",
+    "server": "nodemon server.js",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "efi-postbuild": "npm install --prefix client && npm run build --prefix client"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "body-parser": "^1.18.3",
+    "concurrently": "^4.1.0",
+    "config": "^3.1.0",
+    "express": "^4.16.4",
+    "fs-extra": "^7.0.1",
+    "mongoose": "^5.5.7",
+    "multer": "^1.4.1",
+    "nodemon": "^1.18.11",
+    "scp2": "^0.5.0",
+    "shelljs": "^0.8.3",
+    "ssh2-promise": "^0.1.4"
+  }
+}
