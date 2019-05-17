@@ -2,7 +2,7 @@ node_modules
 ./client/node_modules
 .vscode
 uploads
-./config/keys.js
-./config/private.key
-./config/default.json
-./config/certificate.pem
+./main/config/keys.js
+./main/config/private.key
+./main/config/default.json
+./main/config/certificate.pem
