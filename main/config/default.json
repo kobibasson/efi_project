@@ -1,0 +1,16 @@
+{
+  "mongoURI": "mongodb://root:zubur1@mongo:8000/test?authSource=admin",
+  "kali": {
+    "ssh": {
+      "host": "injector",
+      "username": "root",
+      "password": "zubur1"
+    },
+    "sftp": {
+      "host": "injector",
+      "username": "root",
+      "password": "zubur1",
+      "path": "/root/uploads/"
+    }
+  }
+}
