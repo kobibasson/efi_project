@@ -6,7 +6,7 @@ node {
     }
 
     stage('Build image') {
-        app = docker.build("kobibasson/centos-tshark")
+        app = docker.build("kobibasson/centos-tshark", "-f main/Dockerfile .")
     }
 
     stage('Push image') {
