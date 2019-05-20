@@ -11,7 +11,7 @@ node {
         /* This builds the actual image; synonymous to
          * docker build on the command line */
 
-        app = docker.build("kobibasson/centos-tshark")
+        app = docker.build("kobibasson/centos-tshark", "-f main/Dockerfile .")
     }
 
     stage('Push image') {
